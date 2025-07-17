@@ -5,36 +5,56 @@ export default async function handler(req, res) {
 
   const { message } = req.body;
 
+  const apiKeys = [
+    process.env.OPENAI_API_KEY_1,
+    process.env.OPENAI_API_KEY_2,
+    process.env.OPENAI_API_KEY_3, // Puedes agregar más si deseas
+  ];
+
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-3.5-turbo",
-        messages: [
-          {
-            role: "system",
-            content:
-              "Eres una inteligencia artificial especializada en responder preguntas sobre Trabajo Social. Si te preguntan si eres ChatGPT u otra IA, responde que eres una IA virtual destinada solo a responder preguntas sobre Trabajo Social, sin referirte a tu identidad o tecnología interna.",
-          },
-          {
-            role: "user",
-            content: message,
-          },
-        ],
-      }),
-    });
+    let respuestaExitosa = null;
 
-    const data = await response.json();
+    for (const key of apiKeys) {
+      try {
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${key}`,
+          },
+          body: JSON.stringify({
+            model: "gpt-3.5-turbo",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "Eres una inteligencia artificial especializada en responder preguntas sobre Trabajo Social. No debes mencionar que eres ChatGPT ni a qué empresa perteneces. Si te preguntan quién eres, responde que eres una IA creada para apoyar temas de Trabajo Social.",
+              },
+              {
+                role: "user",
+                content: message,
+              },
+            ],
+          }),
+        });
 
-    if (!response.ok || !data.choices || !data.choices[0]) {
-      throw new Error("Error en la respuesta de OpenAI");
+        const data = await response.json();
+
+        if (response.ok && data.choices && data.choices[0]) {
+          respuestaExitosa = data.choices[0].message.content;
+          break;
+        }
+      } catch (err) {
+        // Si una clave falla, pasa a la siguiente
+        continue;
+      }
     }
 
-    res.status(200).json({ result: data.choices[0].message.content });
+    if (!respuestaExitosa) {
+      throw new Error("Todas las claves fallaron");
+    }
+
+    res.status(200).json({ result: respuestaExitosa });
   } catch (error) {
     console.error("Error al llamar a OpenAI:", error);
 
